@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether Quantum Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root {
+    --bg-dark: #07070a;
+    --panel-bg: rgba(20, 20, 25, 0.4);
+    --panel-border: rgba(255, 255, 255, 0.05);
+    --primary: #00ffff;
+    --primary-glow: rgba(0, 255, 255, 0.4);
+    --secondary: #ff00ff;
+    --secondary-glow: rgba(255, 0, 255, 0.4);
+    --accent: #ffaa00;
+    --text-main: #ffffff;
+    --text-muted: rgba(255, 255, 255, 0.5);
+    
+    --font-sans: 'Inter', sans-serif;
+    --font-mono: 'Fira Code', monospace;
+    --font-serif: 'Playfair Display', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-dark);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .bg-glow { position: fixed; width: 600px; height: 600px; border-radius: 50%; opacity: 0.12; filter: blur(100px); pointer-events: none; z-index: -1; }
+  .glow-1 { top: -200px; left: -200px; background: var(--primary); }
+  .glow-2 { bottom: -200px; right: -200px; background: var(--secondary); }
+
+  .sidebar { width: 280px; background: rgba(10,10,12,0.8); backdrop-filter: blur(20px); border-right: 1px solid var(--panel-border); padding: 30px; display: flex; flex-direction: column; gap: 10px; z-index: 10; flex-shrink: 0; }
+  .brand { font-family: var(--font-serif); font-size: 28px; margin-bottom: 40px; font-style: italic; background: linear-gradient(90deg, #fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .brand span { font-family: var(--font-sans); font-style: normal; font-size: 13px; font-weight: 600; letter-spacing: 3px; color: var(--primary); -webkit-text-fill-color: var(--primary); display:block; margin-top: 5px; }
+
+  .nav-item { background: transparent; border: none; color: var(--text-muted); padding: 16px 20px; text-align: left; font-size: 14px; font-family: var(--font-sans); font-weight: 500; border-radius: 12px; cursor: pointer; transition: all 0.3s; position: relative; display: flex; justify-content: space-between; align-items: center;}
+  .nav-item:hover { color: #fff; background: rgba(255,255,255,0.02); }
+  .nav-item.active { color: #fff; background: linear-gradient(90deg, rgba(0,255,255,0.1), transparent); font-weight: 600; }
+  .nav-item.active::before { content: ''; position: absolute; left: 0; top: 15%; height: 70%; width: 3px; background: var(--primary); box-shadow: 0 0 10px var(--primary); border-radius: 0 4px 4px 0; }
+  
+  .main-content { flex: 1; padding: 50px 60px; overflow-y: auto; scroll-behavior: smooth; position: relative; }
+  
+  .header-title { font-family: var(--font-serif); font-size: 48px; font-style: italic; font-weight: 400; margin-bottom: 8px; }
+  .header-subtitle { font-family: var(--font-mono); font-size: 12px; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 40px; }
+
+  .module { display: none; animation: fadeIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .module.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+  .mod-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+  .col-span-full { grid-column: 1 / -1; }
+  
+  .card { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 20px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); backdrop-filter: blur(16px); position: relative; overflow: hidden; }
+  
+  .btn-glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 20px; border-radius: 10px; cursor: pointer; transition: all 0.3s; font-family: var(--font-sans); font-size: 13px; font-weight: 500; }
+  .btn-glass:hover, .btn-glass.active { background: rgba(0,255,255,0.1); border-color: rgba(0,255,255,0.4); box-shadow: 0 0 15px rgba(0,255,255,0.2); }
+  
+  .stat-lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+  .stat-val { font-size: 32px; font-weight: 300; display: flex; align-items: baseline; gap: 4px; }
+  .stat-val span { font-size: 16px; color: var(--text-muted); }
+  
+  /* Generic Control Group */
+  .ctrl-group { display: flex; flex-direction: column; gap: 8px; }
+  .ctrl-group label { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; display: flex; justify-content: space-between;}
+  .ctrl-group span { color: #fff; }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; margin-top: 5px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--text-main); border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255,255,255,0.5); transition: 0.2s; }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); background: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
+
+  /* Entanglement Specific CSS */
+  .entangle-wrap { display: flex; align-items: center; justify-content: center; gap: 40px; padding: 40px; }
+  .qubit { width: 120px; height: 120px; border-radius: 50%; box-shadow: inset -10px -10px 20px rgba(0,0,0,0.6), inset 5px 5px 10px rgba(255,255,255,0.2); transition: all 0.5s ease; position: relative; }
+  .superpos { background: radial-gradient(circle at 30% 30%, #00ffff, #ff00ff); animation: pulse 2s infinite alternate; }
+  .state-0 { background: radial-gradient(circle at 30% 30%, #fff, #00ffff); box-shadow: 0 0 40px var(--primary-glow); }
+  .state-1 { background: radial-gradient(circle at 30% 30%, #fff, #ff00ff); box-shadow: 0 0 40px var(--secondary-glow); }
+  .line-conn { flex: 1; height: 2px; background: rgba(255,255,255,0.05); position: relative; overflow: hidden; }
+  .line-conn::after { content: ''; position: absolute; top:0; left:-100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent); transition: .1s; }
+  .line-conn.idle::after { animation: slide 2s linear infinite; opacity: 0.3; }
+  .line-conn.fire::after { opacity: 1; animation: shoot 0.4s ease-out forwards; background: linear-gradient(90deg, transparent, var(--primary), transparent); }
+  @keyframes pulse { 0% { filter: hue-rotate(0deg); opacity: 0.8; } 100% { filter: hue-rotate(90deg); opacity: 1; } }
+  @keyframes slide { 0% { left: -100%; } 100% { left: 200%; } }
+  @keyframes shoot { 0% { left: -100%; } 100% { left: 100%; } }
+
+  .toggle-lbl { display: flex; align-items: center; gap: 10px; cursor: pointer; font-family: var(--font-mono); font-size: 11px; }
+  .toggle-checkbox { display: none; }
+  .toggle-switch { width: 36px; height: 18px; background: rgba(255,255,255,0.1); border-radius: 10px; position: relative; transition: 0.3s; }
+  .toggle-switch::before { content: ''; position: absolute; width: 14px; height: 14px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: 0.3s; }
+  .toggle-checkbox:checked + .toggle-switch { background: var(--primary); }
+  .toggle-checkbox:checked + .toggle-switch::before { transform: translateX(18px); }
+
+  /* Start Page */
+  #start-page { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-dark); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease, transform 0.8s ease; }
+  .start-content { text-align: center; animation: float 6s ease-in-out infinite; }
+  .start-btn { margin-top: 40px; padding: 15px 40px; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; background: transparent; border: 1px solid var(--primary); color: var(--primary); font-family: var(--font-mono); border-radius: 30px; cursor: pointer; transition: 0.3s; box-shadow: 0 0 20px rgba(0,255,255,0.2); }
+  .start-btn:hover { background: rgba(0,255,255,0.15); box-shadow: 0 0 30px rgba(0,255,255,0.5); transform: scale(1.05); }
+  @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-15px); } 100% { transform: translateY(0px); } }
+
+  /* App Container */
+  #app-container { display: flex; width: 100%; height: 100%; opacity: 0; transform: scale(0.95); transition: opacity 0.8s ease, transform 0.8s ease; pointer-events: none; }
+  #app-container.ready { opacity: 1; transform: scale(1); pointer-events: auto; }
+</style>
+</head>
+<body>
+
+<div class="bg-glow glow-1"></div>
+<div class="bg-glow glow-2"></div>
+
+<div id="start-page">
+  <div class="start-content">
+    <div class="brand" style="font-size: 80px; margin-bottom: 20px;">Aether</div>
+    <div style="font-family: var(--font-sans); font-size: 20px; font-weight: 300; letter-spacing: 8px; color: var(--primary);">QUANTUM LAB</div>
+    <button class="start-btn" onclick="enterLab()">Initialize Simulator</button>
+  </div>
+</div>
+
+<div id="app-container">
+<div class="sidebar">
+  <div class="brand">Aether<br><span>QUANTUM LAB</span></div>
+  <button class="nav-item active" onclick="switchMod('tunnel', this)">Quantum Tunneling</button>
+  <button class="nav-item" onclick="switchMod('bloch', this)">Bloch Sphere</button>
+  <button class="nav-item" onclick="switchMod('slit', this)">Double Slit</button>
+  <button class="nav-item" onclick="switchMod('box', this)">Particle in Box</button>
+  <button class="nav-item" onclick="switchMod('orbitals', this)">Hydrogen Orbitals</button>
+  <button class="nav-item" onclick="switchMod('entangle', this)">Entanglement</button>
+</div>
+
+<div class="main-content">
+  <!-- Module 1: Tunneling -->
+  <div id="mod-tunnel" class="module active">
+    <div class="header-title">Quantum Tunneling</div>
+    <div class="header-subtitle">Barrier Penetration Dynamics</div>
+    
+    <div class="mod-grid">
+      <div class="card" style="height: 480px; display:flex; flex-direction:column;">
+        <div style="display:flex; gap:10px; margin-bottom: 20px;">
+           <button class="btn-glass active" id="btn-t-psi" onclick="setTunnelTab('psi')">Re[ψ(x)]</button>
+           <button class="btn-glass" id="btn-t-prob" onclick="setTunnelTab('prob')">|ψ|² Density</button>
+           <button class="btn-glass" id="btn-t-T" onclick="setTunnelTab('T')">T(E) Curve</button>
+        </div>
+        <div style="flex:1; position:relative;"><canvas id="tunnelChart"></canvas></div>
+      </div>
+      
+      <div class="card" style="display:flex; flex-direction:column; gap:24px;">
+         <div>
+           <div class="stat-lbl">Transmission (T)</div>
+           <div class="stat-val" id="stat-T" style="color:var(--primary)">0.0<span>%</span></div>
+         </div>
+         <div>
+           <div class="stat-lbl">Reflection (R)</div>
+           <div class="stat-val" id="stat-R" style="color:var(--secondary)">100<span>%</span></div>
+         </div>
+         <div style="margin-top:auto">
+           <div class="stat-lbl">Decay Const (κ)</div>
+           <div class="stat-val" id="stat-kappa" style="color:var(--accent)">0.00</div>
+         </div>
+      </div>
+      
+      <div class="card col-span-full" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+         <div class="ctrl-group">
+            <label>Particle Energy (E) <span id="lbl-E">15.0</span></label>
+            <input type="range" id="sl-E" min="1" max="50" step="0.5" value="15">
+         </div>
+         <div class="ctrl-group">
+            <label>Barrier Height (V₀) <span id="lbl-V">30.0</span></label>
+            <input type="range" id="sl-V" min="5" max="60" step="0.5" value="30">
+         </div>
+         <div class="ctrl-group">
+            <label>Barrier Width (a) <span id="lbl-a">1.50</span></label>
+            <input type="range" id="sl-a" min="0.1" max="4" step="0.1" value="1.5">
+         </div>
+         <div class="ctrl-group">
+            <label>Resolution (Grid) <span id="lbl-N">500</span></label>
+            <input type="range" id="sl-N" min="200" max="1000" step="100" value="500">
+         </div>
+      </div>
+      
+      <div class="card col-span-full concept-card" style="background:rgba(0,0,0,0.4); border:1px solid var(--primary);">
+         <h3 style="color:var(--primary); font-family:var(--font-serif); margin-bottom:10px;">Concept: Quantum Tunneling Explained</h3>
+         <p style="color:var(--text-muted); font-size:14px; line-height:1.6;">
+           In classical physics, a particle cannot overcome a barrier if its energy (E) is less than the barrier's potential (V₀). However, due to wave-particle duality, quantum particles possess a continuous wave function (ψ). When this wave hits a barrier, it doesn't drop to zero instantly but decays exponentially. If the barrier is thin enough, a non-zero amplitude emerges on the other side, creating a probabilistic chance of the particle "tunneling" right through solid matter.
+         </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Module 2: Bloch Sphere -->
+  <div id="mod-bloch" class="module">
+    <div class="header-title">Bloch Sphere</div>
+    <div class="header-subtitle">Qubit Vector Manipulation</div>
+    
+    <div class="mod-grid">
+       <div class="card" style="height: 550px; padding:0; display:flex; justify-content:center; align-items:center;" id="bloch-container">
+          <!-- Three.js Context -->
+       </div>
+       <div class="card" style="display:flex; flex-direction:column; gap:16px;">
+          <div class="stat-lbl">Apply Quantum Gate</div>
+          <button class="btn-glass" onclick="applyGate('X')">X Gate (NOT - 180° rot X)</button>
+          <button class="btn-glass" onclick="applyGate('Y')">Y Gate (180° rot Y)</button>
+          <button class="btn-glass" onclick="applyGate('Z')">Z Gate (Phase - 180° rot Z)</button>
+          <button class="btn-glass" onclick="applyGate('H')" style="border-color:var(--primary)">Hadamard (Superposition)</button>
+          <div style="display:flex; gap:10px;">
+             <button class="btn-glass" style="flex:1;" onclick="applyGate('S')">S Gate</button>
+             <button class="btn-glass" style="flex:1;" onclick="applyGate('T')">T Gate</button>
+          </div>
+          
+          <div class="stat-lbl" style="margin-top:10px;">Preset States</div>
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px;">
+             <button class="btn-glass" style="padding:6px; font-size:12px; border-color:rgba(255,255,255,0.1);" onclick="setPreset(0,0)">|0⟩</button>
+             <button class="btn-glass" style="padding:6px; font-size:12px; border-color:rgba(255,255,255,0.1);" onclick="setPreset(180,0)">|1⟩</button>
+             <button class="btn-glass" style="padding:6px; font-size:12px; border-color:rgba(255,255,255,0.1);" onclick="setPreset(90,0)">|+⟩</button>
+             <button class="btn-glass" style="padding:6px; font-size:12px; border-color:rgba(255,255,255,0.1);" onclick="setPreset(90,180)">|-⟩</button>
+             <button class="btn-glass" style="padding:6px; font-size:12px; border-color:rgba(255,255,255,0.1);" onclick="setPreset(90,90)">|i⟩</button>
+             <button class="btn-glass" style="padding:6px; font-size:12px; border-color:rgba(255,255,255,0.1);" onclick="setPreset(90,270)">|-i⟩</button>
+          </div>
+          
+          <button class="btn-glass" onclick="applyGate('I')" style="margin-top:10px; opacity:0.6">Reset Form (|0⟩)</button>
+          
+          <div class="ctrl-group" style="margin-top:10px;">
+             <label>Polar Angle θ <span id="lbl-b-theta">0°</span></label>
+             <input type="range" id="sl-b-theta" min="0" max="180" step="1" value="0">
+          </div>
+          <div class="ctrl-group">
+             <label>Azimuthal Phase φ <span id="lbl-b-phi">0°</span></label>
+             <input type="range" id="sl-b-phi" min="0" max="360" step="1" value="0">
+          </div>
+          
+          <div style="margin-top:auto; background:rgba(0,0,0,0.5); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05);">
+             <div class="stat-lbl">State Vector</div>
+             <div id="bloch-state-text" style="font-family:var(--font-mono); font-size:24px; color:var(--primary); margin-top:8px;">|0⟩</div>
+          </div>
+       </div>
+    </div>
+  </div>
+
+  <!-- Module 3: Double Slit -->
+  <div id="mod-slit" class="module">
+    <div class="header-title">Double Slit</div>
+    <div class="header-subtitle">Wave-Particle Duality</div>
+    
+    <div class="mod-grid">
+       <div class="card" style="height: 550px; padding:0; overflow:hidden;">
+          <canvas id="slit-canvas" style="width:100%; height:100%;"></canvas>
+       </div>
+       <div class="card" style="display:flex; flex-direction:column; gap:24px;">
+          <div class="ctrl-group">
+            <label>Slit Separation (d) <span id="lbl-slit-dist">60</span></label>
+            <input type="range" id="slit-dist" min="20" max="120" step="5" value="60" oninput="document.getElementById('lbl-slit-dist').innerText=this.value">
+          </div>
+          <div class="ctrl-group">
+            <label>Wavelength (λ) <span id="lbl-slit-wave">20</span></label>
+            <input type="range" id="slit-wave" min="10" max="40" step="2" value="20" oninput="document.getElementById('lbl-slit-wave').innerText=this.value">
+          </div>
+          <hr style="border:none; border-top:1px solid var(--panel-border); margin: 10px 0;">
+          
+          <div>
+            <div class="stat-lbl">Measurement</div>
+            <label class="toggle-lbl" style="margin-top:10px">
+              <input type="checkbox" id="slit-observer" class="toggle-checkbox">
+              <div class="toggle-switch"></div>
+              <span>Detector ON (Collapse)</span>
+            </label>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:15px; line-height:1.5;">
+              When the detector is OFF, particles act as waves creating an interference pattern. 
+              Turn it ON to identify which slit the particle passes through, collapsing the wave function and deleting the interference.
+            </p>
+          </div>
+       </div>
+       
+       <div class="card col-span-full concept-card" style="background:rgba(0,0,0,0.4); border:1px solid var(--primary);">
+         <h3 style="color:var(--primary); font-family:var(--font-serif); margin-bottom:10px;">Concept: Wave-Particle Duality</h3>
+         <p style="color:var(--text-muted); font-size:14px; line-height:1.6;">
+           When unobserved, electrons or photons drift through both slits simultaneously as probability waves, interfering with themselves to create a fringe pattern. However, placing a detector (Detector ON) at the slits forces the wave function to collapse into a single definitive path. Because the 'which-path' information is now known, the particles act like classical bullets, destroying the interference pattern completely. This is the core of the quantum measurement problem.
+         </p>
+       </div>
+    </div>
+  </div>
+
+  <!-- Module 4: Particle in a Box -->
+  <div id="mod-box" class="module">
+    <div class="header-title">Particle in a Box</div>
+    <div class="header-subtitle">Infinite Potential Well</div>
+    
+    <div class="mod-grid">
+       <div class="card col-span-full" style="height: 400px;">
+          <canvas id="box-chart"></canvas>
+       </div>
+       <div class="card col-span-full" style="display:grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+          <div class="ctrl-group">
+            <label>Quantum Number (n) <span id="lbl-box-n">1</span></label>
+            <input type="range" id="box-n" min="1" max="8" step="1" value="1">
+          </div>
+          <div class="ctrl-group">
+            <label>Box Width (L) <span id="lbl-box-l">2.0</span></label>
+            <input type="range" id="box-l" min="1" max="5" step="0.1" value="2.0">
+          </div>
+       </div>
+       
+       <div class="card col-span-full concept-card" style="background:rgba(0,0,0,0.4); border:1px solid var(--primary);">
+         <h3 style="color:var(--primary); font-family:var(--font-serif); margin-bottom:10px;">Concept: Infinite Potential Well</h3>
+         <p style="color:var(--text-muted); font-size:14px; line-height:1.6;">
+           A particle confined to an infinitely deep, impenetrable box can only possess specific, quantized energy levels (denoted by the quantum number n). Because the matter-wave boundary conditions must equal zero exactly at the walls (the particle physically cannot exist outside), only perfect standing waves can form. Consequently, a quantum particle can never have exactly zero energy, securing a mandatory baseline of activity known as "zero-point energy".
+         </p>
+       </div>
+    </div>
+  </div>
+
+  <!-- Module 5: Hydrogen Orbitals -->
+  <div id="mod-orbitals" class="module">
+    <div class="header-title">Hydrogen Orbitals</div>
+    <div class="header-subtitle">Electron Probability Clouds</div>
+    
+    <div class="mod-grid">
+       <div class="card" style="height: 550px; background:#000; padding:0; display:flex; justify-content:center; align-items:center; border: 1px solid var(--primary);">
+          <!-- 400x400 internal resolution drawn scaled -->
+          <canvas id="orbital-canvas" width="300" height="300" style="width:100%; height:100%; max-width:500px; object-fit:contain; filter:drop-shadow(0 0 20px rgba(0,255,255,0.2));"></canvas>
+       </div>
+       <div class="card" style="display:flex; flex-direction:column; gap:16px;">
+          <div class="stat-lbl">Select Orbital State</div>
+          <button class="btn-glass active" id="btn-orb-1s" onclick="drawOrbital('1s')">1s (n=1, l=0, m=0)</button>
+          <button class="btn-glass" id="btn-orb-2s" onclick="drawOrbital('2s')">2s (n=2, l=0, m=0)</button>
+          <button class="btn-glass" id="btn-orb-2p" onclick="drawOrbital('2p')">2p (n=2, l=1, m=0)</button>
+          <button class="btn-glass" id="btn-orb-3d" onclick="drawOrbital('3d')">3d (n=3, l=2, m=0)</button>
+          
+          <div style="margin-top:auto; color:var(--text-muted); font-size:12px; line-height: 1.6;">
+            Visualizing the real part of the 2D cross-section of the electron's probability density field |ψ(r,θ)|².
+            <br><br>Bright cyan indicates high probability areas, dark purple indicates low probability.
+          </div>
+       </div>
+       
+       <div class="card col-span-full concept-card" style="background:rgba(0,0,0,0.4); border:1px solid var(--primary);">
+         <h3 style="color:var(--primary); font-family:var(--font-serif); margin-bottom:10px;">Concept: Hydrogen Orbitals</h3>
+         <p style="color:var(--text-muted); font-size:14px; line-height:1.6;">
+           Unlike the classical Bohr model showing neat planetary rings, electrons actually exist as fuzzy, 3D probability clouds spanning around the nucleus known as orbitals. The shape and density of these clouds are defined strictly by quantum numbers: principal (n), azimuthal (l), and magnetic (m). S-orbitals (l=0) are perfectly spherical grids, while P-orbitals and D-orbitals form elegant lobe and donut geometries shaped by spherical harmonics.
+         </p>
+       </div>
+    </div>
+  </div>
+
+  <!-- Module 6: Entanglement -->
+  <div id="mod-entangle" class="module">
+    <div class="header-title">Quantum Entanglement</div>
+    <div class="header-subtitle">Spooky Action at a Distance</div>
+    
+    <div class="card" style="margin-top:20px;">
+       <div class="entangle-wrap">
+          <div class="card" style="display:flex; flex-direction:column; align-items:center; gap:20px; text-align:center; min-width: 200px;">
+             <div id="qb-a" class="qubit superpos"></div>
+             <div>
+                <h3 style="font-weight:400; font-family:var(--font-serif); font-style:italic; font-size:24px;">Qubit A</h3>
+                <div id="stat-qb-a" style="font-family:var(--font-mono); font-size:11px; color:var(--primary); margin: 5px 0 15px;">Superposition</div>
+                <button class="btn-glass" onclick="measureEntanglement()" style="width:100%">MEASURE</button>
+             </div>
+          </div>
+          
+          <div id="entangle-line" class="line-conn idle"></div>
+          
+          <div class="card" style="display:flex; flex-direction:column; align-items:center; gap:20px; text-align:center; min-width: 200px;">
+             <div id="qb-b" class="qubit superpos"></div>
+             <div>
+                <h3 style="font-weight:400; font-family:var(--font-serif); font-style:italic; font-size:24px;">Qubit B</h3>
+                <div id="stat-qb-b" style="font-family:var(--font-mono); font-size:11px; color:var(--secondary); margin: 5px 0 15px;">Entangled Pair</div>
+                <button class="btn-glass" onclick="resetEntanglement()" style="width:100%; border-color:rgba(255,255,255,0.2)">RESET SYSTEM</button>
+             </div>
+          </div>
+       </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+  function enterLab() {
+    document.getElementById('start-page').style.opacity = '0';
+    document.getElementById('start-page').style.transform = 'scale(1.05)';
+    document.getElementById('start-page').style.pointerEvents = 'none';
+    document.getElementById('app-container').classList.add('ready');
+    setTimeout(() => { document.getElementById('start-page').style.display = 'none'; }, 800);
+  }
+  // --- Global Navigation ---
+  let activeModule = 'tunnel';
+  let chartDefaults = {
+     color: 'rgba(255,255,255,0.6)',
+     gridColor: 'rgba(255,255,255,0.05)',
+     font: "'Fira Code', monospace"
+  };
+  Chart.defaults.color = chartDefaults.color;
+  Chart.defaults.font.family = chartDefaults.font;
+
+  function switchMod(id, btnElem) {
+    activeModule = id;
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.sidebar .nav-item').forEach(b => b.classList.remove('active'));
+    
+    document.getElementById('mod-' + id).classList.add('active');
+    btnElem.classList.add('active');
+    
+    // Delayed init / specific mod updates
+    if(id === 'bloch') initBloch();
+    if(id === 'orbitals') drawOrbital('1s');
+    // Box triggers its own resize gracefully via Chartjs
+  }
+
+  // ============== 1. QUANTUM TUNNELING ==============
+  let tunnelTab = 'psi';
+  let tunnelChartInst = null;
+  
+  function setTunnelTab(t) {
+    tunnelTab = t;
+    ['psi','prob','T'].forEach(id => {
+      let btn = document.getElementById('btn-t-'+id);
+      if(id===t) btn.classList.add('active'); else btn.classList.remove('active');
+    });
+    runTunnelSim();
+  }
+
+  function exactT(E, V0, a, eArr) {
+    return eArr.map(Ei => {
+      if (Math.abs(Ei - V0) < 1e-6) {
+        return 1 / (1 + (V0 * a * a) / 2);
+      } else if (Ei > V0) {
+        const k2 = Math.sqrt(2*(Ei-V0));
+        return 1 / (1 + (V0 * V0 * Math.pow(Math.sin(k2*a), 2)) / (4 * Ei * (Ei - V0)));
+      } else {
+        const kappa = Math.sqrt(2*(V0-Ei));
+        return 1 / (1 + (V0 * V0 * Math.pow(Math.sinh(kappa*a), 2)) / (4 * Ei * (V0 - Ei)));
+      }
+    });
+  }
+
+  function solveSchrodingerScattering(E, V0, a, N) {
+    const L = 10.0; const dx = L / N;
+    const x = Array.from({length: N+1}, (_, i) => i * dx);
+    const bs = (L - a) / 2; const be = (L + a) / 2;
+    const psiR = new Float64Array(N+1); const psiI = new Float64Array(N+1);
+    const k1 = Math.sqrt(2 * E);
+    
+    psiR[N] = Math.cos(k1 * x[N]); psiI[N] = Math.sin(k1 * x[N]);
+    psiR[N-1] = Math.cos(k1 * x[N-1]); psiI[N-1] = Math.sin(k1 * x[N-1]);
+
+    const V = x.map(xi => (xi >= bs && xi <= be) ? V0 : 0.0);
+    const f = new Float64Array(N+1);
+    for(let i=0; i<=N; i++) f[i] = 2 * (V[i] - E);
+
+    const d2 = dx * dx;
+    for (let i = N-1; i >= 1; i--) {
+      const den = 1 - (d2/12) * f[i-1];
+      const c0 = 2 * (1 + 5*d2/12 * f[i]);
+      const c1 = 1 - (d2/12) * f[i+1];
+      psiR[i-1] = (c0 * psiR[i] - c1 * psiR[i+1]) / den;
+      psiI[i-1] = (c0 * psiI[i] - c1 * psiI[i+1]) / den;
+    }
+
+    const coskd = Math.cos(k1 * dx); const sinkd = Math.sin(k1 * dx);
+    const X_R = psiR[0]*coskd + psiI[0]*sinkd; const X_I = psiI[0]*coskd - psiR[0]*sinkd;
+    const dR = psiR[1] - X_R; const dI = psiI[1] - X_I;
+    const denom = 2 * sinkd;
+    let I_R = dI / denom; let I_I = -dR / denom;
+    if (Math.abs(denom) < 1e-12) { I_R = 1; I_I = 0; }
+
+    const magSq = I_R*I_R + I_I*I_I;
+    const transmission = 1.0 / magSq;
+    
+    const psiNormR = new Float64Array(N+1); const prob = new Float64Array(N+1);
+    for(let i=0; i<=N; i++) {
+      const nR = (psiR[i]*I_R + psiI[i]*I_I) / magSq;
+      const nI = (psiI[i]*I_R - psiR[i]*I_I) / magSq;
+      psiNormR[i] = nR; prob[i] = nR*nR + nI*nI;
+    }
+    return { x, V, psi: Array.from(psiNormR), prob: Array.from(prob), exactT: transmission };
+  }
+
+  function runTunnelSim() {
+    const E = parseFloat(document.getElementById('sl-E').value);
+    const V0 = parseFloat(document.getElementById('sl-V').value);
+    const a = parseFloat(document.getElementById('sl-a').value);
+    const N = parseInt(document.getElementById('sl-N').value);
+
+    const curT = exactT(E, V0, a, [E])[0];
+    const curR = 1 - Math.min(1, curT);
+    
+    const fmt = (v) => (v < 0.001 && v > 0) ? (v*100).toExponential(2) : (v*100).toFixed(1);
+    document.getElementById('stat-T').innerHTML = fmt(curT) + '<span>%</span>';
+    document.getElementById('stat-R').innerHTML = fmt(curR) + '<span>%</span>';
+    
+    if (E < V0) {
+      document.getElementById('stat-kappa').textContent = Math.sqrt(2*(V0-E)).toFixed(3);
+    } else {
+      document.getElementById('stat-kappa').textContent = '—';
+    }
+
+    const scaleOpts = {
+      x: { grid: { color: chartDefaults.gridColor } },
+      y: { grid: { color: chartDefaults.gridColor } }
+    };
+
+    const ctx = document.getElementById('tunnelChart').getContext('2d');
+    
+    if (tunnelTab === 'T') {
+      const eArr = Array.from({length: 400}, (_,i) => 0.2 + i*0.15);
+      const tArr = exactT(E, V0, a, eArr);
+      const closestIdx = eArr.reduce((best, ei, i) => Math.abs(ei-E) < Math.abs(eArr[best]-E) ? i : best, 0);
+      
+      if(tunnelChartInst) tunnelChartInst.destroy();
+      const grad = ctx.createLinearGradient(0, 0, 0, 400);
+      grad.addColorStop(0, 'rgba(0, 255, 204, 0.4)');
+      grad.addColorStop(1, 'rgba(0, 255, 204, 0.0)');
+
+      tunnelChartInst = new Chart(ctx, {
+        type: 'line',
+        data: { labels: eArr.map(e=>e.toFixed(1)), datasets: [{ label: 'T(E)', data: tArr.map(t=>t*100), borderColor: '#00ffff', borderWidth: 3, pointRadius: 0, tension: 0.4, fill: true, backgroundColor: grad }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ...scaleOpts.x, title: {display:true, text:'Energy (E)', color:chartDefaults.color} }, y: { ...scaleOpts.y, title: {display:true, text:'Transmission (%)', color:chartDefaults.color} } } }
+      });
+      return;
+    }
+
+    const result = solveSchrodingerScattering(E, V0, a, N);
+    const {x, V, psi, prob} = result;
+    const stepX = Math.max(1, Math.floor(x.length/400));
+    const xs = x.filter((_,i)=>i%stepX===0); const Vs = V.filter((_,i)=>i%stepX===0);
+    
+    if (tunnelTab === 'psi') {
+      const maxA = Math.max(1.0, Math.max(...psi.map(Math.abs)));
+      const psiScaled = psi.filter((_,i)=>i%stepX===0).map(v => v*(V0*0.4/maxA) + E);
+      if(tunnelChartInst) tunnelChartInst.destroy();
+      tunnelChartInst = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: xs.map(v=>v.toFixed(2)),
+          datasets: [
+            { label: 'V(x)', data: Vs, borderColor: 'rgba(255,0,85,0.6)', borderWidth: 2, pointRadius: 0, fill: true, backgroundColor: 'rgba(255,0,85,0.1)', tension: 0, stepLine: true },
+            { label: 'Re[ψ]', data: psiScaled, borderColor: '#00ffff', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: false },
+            { label: 'E', data: xs.map(()=>E), borderColor: 'rgba(255,255,255,0.3)', borderWidth: 1, borderDash: [5,5], pointRadius: 0 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display:false } }, scales: scaleOpts }
+      });
+    } else {
+      const maxP = Math.max(0.1, Math.max(...prob));
+      const probScaled = prob.filter((_,i)=>i%stepX===0).map(v => v*(V0*0.5/maxP) + E);
+      if(tunnelChartInst) tunnelChartInst.destroy();
+      const grad = ctx.createLinearGradient(0, 0, 0, 400);
+      grad.addColorStop(0, 'rgba(255, 0, 255, 0.4)');
+      grad.addColorStop(1, 'rgba(255, 0, 255, 0.05)');
+      tunnelChartInst = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: xs.map(v=>v.toFixed(2)),
+          datasets: [
+            { label: 'V(x)', data: Vs, borderColor: 'rgba(255,0,85,0.6)', borderWidth: 2, pointRadius: 0, fill: true, backgroundColor: 'rgba(255,0,85,0.1)', tension: 0, stepLine: true },
+            { label: '|ψ|²', data: probScaled, borderColor: '#ff00ff', borderWidth: 3, pointRadius: 0, fill: true, backgroundColor: grad, tension: 0.4 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display:false } }, scales: scaleOpts }
+      });
+    }
+  }
+
+  ['sl-E','sl-V','sl-a','sl-N'].forEach(id => {
+    document.getElementById(id).addEventListener('input', (e) => {
+      document.getElementById(id.replace('sl-','lbl-')).innerText = (id==='sl-N') ? e.target.value : parseFloat(e.target.value).toFixed(1);
+      runTunnelSim();
+    });
+  });
+  runTunnelSim();
+
+  // ============== 2. BLOCH SPHERE ==============
+  let blochScene, blochCamera, blochRenderer, blochArrow;
+  let isBlochAnimating = false;
+
+  function initBloch() {
+    let container = document.getElementById('bloch-container');
+    if(container.children.length > 0) return; // already inited
+    
+    blochScene = new THREE.Scene();
+    blochCamera = new THREE.PerspectiveCamera(40, container.clientWidth/container.clientHeight, 0.1, 100);
+    blochCamera.position.set(4, 2, 4);
+    blochCamera.lookAt(0,0,0);
+    
+    blochRenderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
+    blochRenderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(blochRenderer.domElement);
+    
+    // Geometry
+    let geo = new THREE.SphereGeometry(1.5, 32, 24);
+    let mat = new THREE.MeshBasicMaterial({color: 0x00ffff, wireframe: true, transparent:true, opacity:0.15});
+    blochScene.add(new THREE.Mesh(geo, mat));
+    
+    // Axes
+    let axes = new THREE.AxesHelper(1.8);
+    blochScene.add(axes);
+    
+    // Arrow (Qubit State) default |0> (Y axis in threejs relative to Z visually)
+    // Z in quantum is usually Vertical. Three.js Vertical is Y.
+    let startDir = new THREE.Vector3(0,1,0); 
+    blochArrow = new THREE.ArrowHelper(startDir, new THREE.Vector3(0,0,0), 1.5, 0xff00ff, 0.3, 0.2);
+    blochScene.add(blochArrow);
+
+    let isDragging = false, prevX = 0, prevY = 0;
+    container.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('mousemove', e => {
+      if (!isDragging || activeModule !== 'bloch') return;
+      blochScene.rotation.y += (e.clientX - prevX) * 0.008;
+      blochScene.rotation.x += (e.clientY - prevY) * 0.008;
+      blochScene.rotation.x = Math.max(-0.8, Math.min(0.8, blochScene.rotation.x));
+      prevX = e.clientX; prevY = e.clientY;
+    });
+
+    let blochThetaSlider = document.getElementById('sl-b-theta');
+    let blochPhiSlider = document.getElementById('sl-b-phi');
+    
+    window.updateBlochFromAngles = function() {
+       let tDeg = parseInt(document.getElementById('sl-b-theta').value);
+       let pDeg = parseInt(document.getElementById('sl-b-phi').value);
+       let t = tDeg * Math.PI / 180;
+       let p = pDeg * Math.PI / 180;
+       let dir = new THREE.Vector3(Math.sin(t)*Math.cos(p), Math.cos(t), Math.sin(t)*Math.sin(p)).normalize();
+       blochArrow.setDirection(dir);
+       
+       document.getElementById('lbl-b-theta').innerText = tDeg + '°';
+       document.getElementById('lbl-b-phi').innerText = pDeg + '°';
+       
+       let p0 = Math.cos(t/2)**2;
+       
+       let label = "|u⟩ (Superposition)";
+       if(tDeg === 0) label = "|0⟩";
+       else if(tDeg === 180) label = "|1⟩";
+       else if(tDeg === 90) {
+           if(pDeg === 0) label = "|+⟩ = (|0⟩ + |1⟩)/√2";
+           else if(pDeg === 180) label = "|-⟩ = (|0⟩ - |1⟩)/√2";
+           else if(pDeg === 90) label = "|i⟩ = (|0⟩ + i|1⟩)/√2";
+           else if(pDeg === 270) label = "|-i⟩ = (|0⟩ - i|1⟩)/√2";
+       }
+       
+       document.getElementById('bloch-state-text').innerHTML = `
+         <div style="font-size:24px;">${label}</div>
+         <div style="font-size:14px; margin-top:8px; color:var(--text-muted); font-family:var(--font-sans); font-weight: 300;">P(|0⟩) = ${(p0*100).toFixed(1)}% &nbsp;&nbsp;|&nbsp;&nbsp; P(|1⟩) = ${(100 - p0*100).toFixed(1)}%</div>
+       `;
+    };
+    
+    blochThetaSlider.addEventListener('input', window.updateBlochFromAngles);
+    blochPhiSlider.addEventListener('input', window.updateBlochFromAngles);
+    
+    window.setPreset = function(t, p) {
+       if(isBlochAnimating || !blochArrow) return;
+       document.getElementById('sl-b-theta').value = t;
+       document.getElementById('sl-b-phi').value = p;
+       window.updateBlochFromAngles();
+    };
+    
+    function animate() {
+       requestAnimationFrame(animate);
+       if(activeModule==='bloch') {
+          if(!isDragging) blochScene.rotation.y += 0.003;
+          blochRenderer.render(blochScene, blochCamera);
+       }
+    }
+    animate();
+    
+    window.addEventListener('resize', ()=>{
+       if(activeModule==='bloch') {
+          blochCamera.aspect = container.clientWidth / container.clientHeight;
+          blochCamera.updateProjectionMatrix();
+          blochRenderer.setSize(container.clientWidth, container.clientHeight);
+       }
+    });
+  }
+
+  function applyGate(gate) {
+    if(isBlochAnimating || !blochArrow) return;
+    
+    let axis = new THREE.Vector3();
+    let angle = 0;
+    
+    if(gate==='X') { axis.set(1,0,0); angle = Math.PI; }
+    else if(gate==='Y') { axis.set(0,0,1); angle = Math.PI; } // Y gate rotates around Z axis in Threejs
+    else if(gate==='Z') { axis.set(0,1,0); angle = Math.PI; } // Z gate rotates around Y axis in Threejs
+    else if(gate==='H') { axis.set(1,1,0).normalize(); angle = Math.PI; }
+    else if(gate==='S') { axis.set(0,1,0); angle = Math.PI/2; }
+    else if(gate==='T') { axis.set(0,1,0); angle = Math.PI/4; }
+    else if(gate==='I') {
+       blochArrow.setDirection(new THREE.Vector3(0,1,0));
+       document.getElementById('bloch-state-text').innerText = "|0⟩";
+       document.getElementById('sl-b-theta').value = 0;
+       document.getElementById('sl-b-phi').value = 0;
+       document.getElementById('lbl-b-theta').innerText = '0°';
+       document.getElementById('lbl-b-phi').innerText = '0°';
+       return;
+    }
+
+    let _tDeg = parseInt(document.getElementById('sl-b-theta').value);
+    let _pDeg = parseInt(document.getElementById('sl-b-phi').value);
+    let _t = _tDeg * Math.PI / 180;
+    let _p = _pDeg * Math.PI / 180;
+    let startDir = new THREE.Vector3(Math.sin(_t)*Math.cos(_p), Math.cos(_t), Math.sin(_t)*Math.sin(_p)).normalize();
+    isBlochAnimating = true;
+    let frames = 0, maxFrames = 40;
+    
+    function anim() {
+       frames++;
+       let t = frames/maxFrames;
+       let easeT = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+       
+       let qObj = new THREE.Quaternion().setFromAxisAngle(axis, angle * easeT);
+       let newDir = startDir.clone().applyQuaternion(qObj).normalize();
+       blochArrow.setDirection(newDir);
+       
+       if(frames < maxFrames) {
+           requestAnimationFrame(anim);
+       } else {
+           isBlochAnimating = false;
+           // Snap to precise vector to avoid floating point text issues
+           newDir.x = Math.round(newDir.x * 100) / 100;
+           newDir.y = Math.round(newDir.y * 100) / 100;
+           newDir.z = Math.round(newDir.z * 100) / 100;
+           
+           // Update sliders
+           let updatedTheta = Math.acos(newDir.y);
+           let updatedPhi = Math.atan2(newDir.z, newDir.x);
+           if(updatedPhi < 0) updatedPhi += 2*Math.PI;
+           let tDeg = Math.round(updatedTheta * 180 / Math.PI);
+           let pDeg = Math.round(updatedPhi * 180 / Math.PI);
+           document.getElementById('sl-b-theta').value = tDeg;
+           document.getElementById('sl-b-phi').value = pDeg;
+           window.updateBlochFromAngles();
+       }
+    }
+    anim();
+  }
+
+  // ============== 3. DOUBLE SLIT ==============
+  let slitTime = 0;
+  function runDoubleSlit() {
+    requestAnimationFrame(runDoubleSlit);
+    if(activeModule !== 'slit') return;
+    
+    let canvas = document.getElementById('slit-canvas');
+    let parent = canvas.parentElement;
+    if(canvas.width !== parent.clientWidth) {
+       canvas.width = parent.clientWidth;
+       canvas.height = parent.clientHeight;
+    }
+    let ctx = canvas.getContext('2d');
+    let w = canvas.width, h = canvas.height;
+    
+    ctx.fillStyle = '#07070a';
+    ctx.fillRect(0,0,w,h);
+    
+    let dist = parseFloat(document.getElementById('slit-dist').value);
+    let waveLen = parseFloat(document.getElementById('slit-wave').value);
+    let isObserver = document.getElementById('slit-observer').checked;
+    
+    slitTime += 0.05;
+    
+    let s1y = h/2 - dist/2;
+    let s2y = h/2 + dist/2;
+    let sx = w * 0.25;
+    let screenX = w * 0.85;
+    
+    ctx.globalCompositeOperation = 'screen';
+    ctx.lineWidth = 1.5;
+    
+    for(let r=0; r < w; r+=waveLen) {
+      let rad = (r + slitTime*waveLen) % w;
+      let alpha = Math.max(0, 1 - Math.pow(rad/(w*0.8), 1.5));
+      if(alpha<=0) continue;
+      
+      if(isObserver) {
+         // Particle mode: no interference drawing, just independent expanding fields and collapsed hits
+         ctx.beginPath(); ctx.arc(sx, s1y, rad, -Math.PI/2, Math.PI/2); ctx.strokeStyle=`rgba(0,255,255,${alpha*0.3})`; ctx.stroke();
+         ctx.beginPath(); ctx.arc(sx, s2y, rad, -Math.PI/2, Math.PI/2); ctx.strokeStyle=`rgba(255,0,255,${alpha*0.3})`; ctx.stroke();
+      } else {
+         ctx.beginPath(); ctx.arc(sx, s1y, rad, -Math.PI/2, Math.PI/2); ctx.strokeStyle=`rgba(0,180,255,${alpha*0.7})`; ctx.stroke();
+         ctx.beginPath(); ctx.arc(sx, s2y, rad, -Math.PI/2, Math.PI/2); ctx.strokeStyle=`rgba(255,0,180,${alpha*0.7})`; ctx.stroke();
+      }
+    }
+    
+    ctx.globalCompositeOperation = 'source-over';
+    
+    // Barrier
+    ctx.fillStyle = '#222';
+    ctx.fillRect(sx - 4, 0, 8, h);
+    ctx.fillStyle = '#07070a';
+    ctx.fillRect(sx - 5, s1y - 6, 10, 12);
+    ctx.fillRect(sx - 5, s2y - 6, 10, 12);
+    // Glow at slits
+    ctx.fillStyle = 'rgba(0,255,255,0.8)'; ctx.fillRect(sx-2, s1y-4, 4, 8);
+    ctx.fillStyle = 'rgba(255,0,255,0.8)'; ctx.fillRect(sx-2, s2y-4, 4, 8);
+    
+    // Screen plate
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.fillRect(screenX, 0, 4, h);
+    
+    // Screen Pattern
+    ctx.beginPath();
+    for(let y=0; y<h; y+=2) {
+       let d1 = Math.hypot(screenX - sx, y - s1y);
+       let d2 = Math.hypot(screenX - sx, y - s2y);
+       let intensity;
+       if(isObserver) {
+         // Two Gaussian peaks independent
+         intensity = Math.exp(-Math.pow(y-s1y, 2)/(dist*10)) + Math.exp(-Math.pow(y-s2y, 2)/(dist*10));
+       } else {
+         let phase = (d1 - d2) * (Math.PI * 2 / waveLen);
+         intensity = 1.5 * Math.pow(Math.cos(phase/2), 2) * Math.exp(-Math.pow(y-h/2, 2)/15000); 
+       }
+       let plotX = screenX + 10 + intensity * 40;
+       if(y===0) ctx.moveTo(plotX, y); else ctx.lineTo(plotX, y);
+    }
+    ctx.strokeStyle = isObserver ? '#ff00ff' : '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Draw moving particles if observer on
+    if(isObserver) {
+      let ptime = (slitTime % 40) / 40; // 0 to 1
+      let py1 = s1y; let px1 = sx + ptime * (screenX - sx);
+      let py2 = s2y; let px2 = sx + ptime * (screenX - sx);
+      ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.arc(px1, py1, 4, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#ff00ff'; ctx.beginPath(); ctx.arc(px2, py2, 4, 0, 6.28); ctx.fill();
+    }
+  }
+  runDoubleSlit();
+
+  // ============== 4. PARTICLE IN A BOX ==============
+  let boxChartInst = null;
+  function runBoxSim() {
+    let n = parseInt(document.getElementById('box-n').value);
+    let L = parseFloat(document.getElementById('box-l').value);
+    
+    let steps = 200;
+    let xs=[], eq=[], prob=[], en=[];
+    let E = (n*n)/(L*L);
+    
+    for(let i=0; i<=steps; i++) {
+       let x = (i/steps)*L;
+       xs.push(x.toFixed(2));
+       let psi = Math.sqrt(2/L) * Math.sin(n * Math.PI * x / L);
+       eq.push(psi + E);
+       prob.push(psi*psi + E);
+       en.push(E);
+    }
+    
+    let ctx = document.getElementById('box-chart').getContext('2d');
+    if(boxChartInst) boxChartInst.destroy();
+    boxChartInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+         labels: xs,
+         datasets: [
+            { label: 'Energy Level', data: en, borderColor: 'rgba(255,255,255,0.3)', borderDash:[5,5], pointRadius:0, borderWidth: 1 },
+            { label: 'Re[ψ]', data: eq, borderColor: '#00e5ff', pointRadius:0, borderWidth: 2, tension:0.4 },
+            { label: '|ψ|²', data: prob, borderColor: '#ff00ff', pointRadius:0, borderWidth: 2, tension:0.4, fill: true, backgroundColor: 'rgba(255,0,255,0.15)' }
+         ]
+      },
+      options: {
+         responsive: true, maintainAspectRatio: false,
+         scales: {
+             x: { grid: {color: chartDefaults.gridColor}, ticks: {color: chartDefaults.color}, title: {display:true, text:'Position x'} },
+             y: { grid: {color: chartDefaults.gridColor}, ticks: {color: chartDefaults.color}, title: {display:true, text:'Energy & Amplitude'} }
+         }
+      }
+    });
+  }
+  ['box-n', 'box-l'].forEach(id => {
+    document.getElementById(id).addEventListener('input', (e)=>{
+      document.getElementById(id.replace('box-', 'lbl-box-')).innerText = e.target.value;
+      runBoxSim();
+    });
+  });
+  runBoxSim();
+
+  // ============== 5. HYDROGEN ORBITALS ==============
+  function drawOrbital(type) {
+    let canvas = document.getElementById('orbital-canvas');
+    if(!canvas) return;
+    let ctx = canvas.getContext('2d');
+    let w = canvas.width, h = canvas.height;
+    let imgData = ctx.createImageData(w, h);
+    let data = imgData.data;
+
+    document.querySelectorAll('#mod-orbitals .btn-glass').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-orb-' + type).classList.add('active');
+    
+    for(let py=0; py<h; py++) {
+      for(let px=0; px<w; px++) {
+         let x = (px - w/2) / 25;
+         let y = (py - h/2) / 25;
+         let r = Math.sqrt(x*x + y*y);
+         let theta = Math.atan2(y, x);
+         let val = 0;
+         
+         if(type === '1s') val = Math.exp(-2*r);
+         else if(type === '2s') val = Math.pow(2-r, 2) * Math.exp(-r);
+         else if(type === '2p') val = r*r * Math.exp(-r) * Math.pow(Math.cos(theta), 2);
+         else if(type === '3d') val = Math.pow(r, 4) * Math.exp(-2*r/3) * Math.pow(3*Math.cos(theta)*Math.cos(theta)-1, 2) / 4;
+         
+         let displayVal = Math.min(1, val * (type==='1s'?1 : type==='2s'?1.2 : type==='2p'?1.5 : 3.0));
+         
+         // Custom colormap (Black -> Dark Purple -> Magenta -> Cyan -> White)
+         let clr = [0,0,0];
+         let v = displayVal;
+         if (v < 0.1) { clr = [v*10*60, 0, v*10*100]; }
+         else if (v < 0.4) { clr = [60 + (v-0.1)*3.3*140, 0, 100 + (v-0.1)*3.3*100]; }
+         else if (v < 0.8) { clr = [200 - (v-0.4)*2.5*200, (v-0.4)*2.5*255, 200 + (v-0.4)*2.5*55]; }
+         else { clr = [(v-0.8)*5*255, 255, 255]; }
+         
+         let idx = (py*w + px)*4;
+         data[idx] = clr[0]; data[idx+1] = clr[1]; data[idx+2] = clr[2]; data[idx+3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // ============== 6. ENTANGLEMENT ==============
+  let isEntangled = true;
+  function measureEntanglement() {
+    if(!isEntangled) return;
+    let res = Math.random() > 0.5 ? 0 : 1;
+    document.getElementById('qb-a').className = 'qubit state-' + res;
+    document.getElementById('stat-qb-a').innerText = res===0 ? '|0⟩ Measured' : '|1⟩ Measured';
+    
+    let line = document.getElementById('entangle-line');
+    line.className = 'line-conn fire';
+    isEntangled = false;
+    
+    setTimeout(()=>{
+      document.getElementById('qb-b').className = 'qubit state-' + res;
+      document.getElementById('stat-qb-b').innerText = res===0 ? '|0⟩ Collasped (Instant)' : '|1⟩ Collapsed (Instant)';
+    }, 400); // UI delay for 'speed of light' visual pulse
+  }
+  function resetEntanglement() {
+    document.getElementById('qb-a').className = 'qubit superpos';
+    document.getElementById('qb-b').className = 'qubit superpos';
+    document.getElementById('stat-qb-a').innerText = 'Superposition';
+    document.getElementById('stat-qb-b').innerText = 'Entangled Pair';
+    document.getElementById('entangle-line').className = 'line-conn idle';
+    isEntangled = true;
+  }
+</script>
+</body>
+</html>
